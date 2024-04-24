@@ -9,9 +9,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
-import android.view.View;
 import android.widget.ImageButton;
-import android.widget.ImageView;
 
 import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
@@ -28,10 +26,9 @@ public class MainActivity extends AppCompatActivity {
     boolean cameraPermission = false;
     String TAG = "Permission";
     ImageButton capture;
-    ImageView image;
     Uri uriForCamera;
 
-    private ActivityResultLauncher<String> requestPermissionLauncherStorageImages =
+    private final ActivityResultLauncher<String> requestPermissionLauncherStorageImages =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
                 if (isGranted) {
                     Log.d(TAG, permissions[0] + " Granted");
@@ -43,7 +40,7 @@ public class MainActivity extends AppCompatActivity {
                 requestPermissionCameraAccess();
             });
 
-    private ActivityResultLauncher<String> requestPermissionLauncherCameraAccess =
+    private final ActivityResultLauncher<String> requestPermissionLauncherCameraAccess =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
                 if (isGranted) {
                     Log.d(TAG, permissions[1] + " Granted");
@@ -54,12 +51,16 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
-    private ActivityResultLauncher<Intent> cameraLauncher = registerForActivityResult(
+    private final ActivityResultLauncher<Intent> cameraLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(), new ActivityResultCallback<ActivityResult>() {
                 @Override
                 public void onActivityResult(ActivityResult o) {
                     if (o.getResultCode() == RESULT_OK) {
-                        image.setImageURI(uriForCamera);
+                        Intent resultIntent = new Intent(MainActivity.this, CaptureResult.class);
+                        resultIntent.putExtra("capturedImage", uriForCamera);
+                        startActivity(resultIntent);
+                    } else {
+                        Log.e(TAG, "Camera activity failed with code: " + o.getResultCode());
                     }
                 }
             }
@@ -71,20 +72,17 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         capture = (ImageButton) findViewById(R.id.capture);
-        image = (ImageView) findViewById(R.id.image);
+        //image = (ImageView) findViewById(R.id.image);
 
         if (!storagePermission) {
             requestPermissionStorageImages();
         }
 
-        capture.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (cameraPermission) {
-                    openCamera();
-                } else {
-                    requestPermissionCameraAccess();
-                }
+        capture.setOnClickListener(v -> {
+            if (cameraPermission) {
+                openCamera();
+            } else {
+                requestPermissionCameraAccess();
             }
         });
     }
@@ -95,6 +93,7 @@ public class MainActivity extends AppCompatActivity {
         values.put(MediaStore.Images.Media.DESCRIPTION,"Check bank notes for authenticity");
         uriForCamera = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
         Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        cameraIntent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, uriForCamera);
         cameraLauncher.launch(cameraIntent);
     }

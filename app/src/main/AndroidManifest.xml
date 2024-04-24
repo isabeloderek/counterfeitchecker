@@ -28,15 +28,8 @@
         android:theme="@style/Theme.CounterfeitChecker"
         tools:targetApi="31">
         <activity
-            android:name=".DisplayImage"
-            android:exported="false"
-            android:label="@string/title_activity_display_image"
-            android:theme="@style/Theme.CounterfeitChecker" />
-        <activity
-            android:name=".display_image"
-            android:exported="false"
-            android:label="@string/title_activity_display_image"
-            android:theme="@style/Theme.CounterfeitChecker" />
+            android:name=".CaptureResult"
+            android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true">
