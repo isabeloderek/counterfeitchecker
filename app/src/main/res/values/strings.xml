@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Counterfeit Checker</string>
+    <string name="title_activity_show_image">ShowImage</string>
+    <string name="title_activity_display_image">display_image</string>
 </resources>

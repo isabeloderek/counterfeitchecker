@@ -1,43 +1,65 @@
 package com.example.counterfeitchecker;
 
 import android.Manifest;
+import android.content.ContentValues;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.MediaStore;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageButton;
-import android.widget.Toast;
+import android.widget.ImageView;
 
+import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.camera.core.AspectRatio;
-import androidx.camera.core.Camera;
-import androidx.camera.core.CameraSelector;
-import androidx.camera.core.ImageCapture;
-import androidx.camera.core.ImageCaptureException;
-import androidx.camera.core.Preview;
-import androidx.camera.lifecycle.ProcessCameraProvider;
-import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 
-import com.google.common.util.concurrent.ListenableFuture;
-
-import java.io.File;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
-
+@RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
 public class MainActivity extends AppCompatActivity {
-    ImageButton capture, toggleFlash,flipCamera;
-    private PreviewView previewView;
-    int cameraFacing = CameraSelector.LENS_FACING_BACK;
-    private final ActivityResultLauncher<String> activityResultLauncher = registerForActivityResult(
-            new ActivityResultContracts.RequestPermission(), new ActivityResultCallback<Boolean>() {
+    String[] permissions = new String[]{Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.CAMERA};
+    boolean storagePermission = false;
+    boolean cameraPermission = false;
+    String TAG = "Permission";
+    ImageButton capture;
+    ImageView image;
+    Uri uriForCamera;
+
+    private ActivityResultLauncher<String> requestPermissionLauncherStorageImages =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) {
+                    Log.d(TAG, permissions[0] + " Granted");
+                    storagePermission = true;
+                } else {
+                    Log.d(TAG, permissions[0] + " Not Granted");
+                    storagePermission = false;
+                }
+                requestPermissionCameraAccess();
+            });
+
+    private ActivityResultLauncher<String> requestPermissionLauncherCameraAccess =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) {
+                    Log.d(TAG, permissions[1] + " Granted");
+                    storagePermission = true;
+                } else {
+                    Log.d(TAG, permissions[1] + " Not Granted");
+                    storagePermission = false;
+                }
+            });
+
+    private ActivityResultLauncher<Intent> cameraLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(), new ActivityResultCallback<ActivityResult>() {
                 @Override
-                public void onActivityResult(Boolean o) {
-                    if (o) {
-                        startCamera(cameraFacing);
+                public void onActivityResult(ActivityResult o) {
+                    if (o.getResultCode() == RESULT_OK) {
+                        image.setImageURI(uriForCamera);
                     }
                 }
             }
@@ -48,127 +70,51 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        previewView = findViewById(R.id.cameraPreview);
-        capture = findViewById(R.id.capture);
-        toggleFlash = findViewById(R.id.toggleFlash);
-        flipCamera = findViewById(R.id.flipCamera);
+        capture = (ImageButton) findViewById(R.id.capture);
+        image = (ImageView) findViewById(R.id.image);
 
-        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) !=
-                PackageManager.PERMISSION_GRANTED) {
-            activityResultLauncher.launch(Manifest.permission.CAMERA);
-        } else {
-            startCamera(cameraFacing);
+        if (!storagePermission) {
+            requestPermissionStorageImages();
         }
 
-        flipCamera.setOnClickListener(new View.OnClickListener() {
+        capture.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (cameraFacing == CameraSelector.LENS_FACING_BACK) {
-                    cameraFacing = CameraSelector.LENS_FACING_FRONT;
+                if (cameraPermission) {
+                    openCamera();
                 } else {
-                    cameraFacing = CameraSelector.LENS_FACING_BACK;
+                    requestPermissionCameraAccess();
                 }
-                startCamera(cameraFacing);
             }
         });
     }
 
-    public void startCamera(int cameraFacing) {
-        // int width = previewView.getWidth();
-        // int height = previewView.getHeight();
-        // int aspectRatio = aspectRatio(previewView.getWidth(), previewView.getHeight());
-        ListenableFuture<ProcessCameraProvider> listenableFuture = ProcessCameraProvider.getInstance(this);
-        listenableFuture.addListener(() -> {
-            try {
-                ProcessCameraProvider cameraProvider = (ProcessCameraProvider) listenableFuture.get();
-
-                Preview preview = new Preview.Builder().build();
-
-                ImageCapture imageCapture = new ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                        .setTargetRotation(getWindowManager().getDefaultDisplay().getRotation()).build();
-
-                CameraSelector cameraSelector = new CameraSelector.Builder()
-                        .requireLensFacing(cameraFacing).build();
-
-                cameraProvider.unbindAll();
-
-                Camera camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture);
-
-                capture.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                            activityResultLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE);
-                        } else {
-                            takePicture(imageCapture);
-                        }
-                    }
-                });
-
-                toggleFlash.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        setFlashIcon(camera);
-                    }
-                });
-
-                preview.setSurfaceProvider(previewView.getSurfaceProvider());
-            } catch (ExecutionException | InterruptedException e) {
-                e.printStackTrace();
-            }
-        }, ContextCompat.getMainExecutor(this));
+    public void openCamera() {
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.Images.Media.TITLE,"Counterfeit Checker");
+        values.put(MediaStore.Images.Media.DESCRIPTION,"Check bank notes for authenticity");
+        uriForCamera = getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+        Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, uriForCamera);
+        cameraLauncher.launch(cameraIntent);
     }
 
-    public void takePicture(ImageCapture imageCapture) {
-        final File file = new File(getExternalFilesDir(null), System.currentTimeMillis() + ".jpg");
-        ImageCapture.OutputFileOptions outputFileOptions = new ImageCapture.OutputFileOptions.Builder(file).build();
-        imageCapture.takePicture(outputFileOptions, Executors.newCachedThreadPool(), new ImageCapture.OnImageSavedCallback() {
-            @Override
-            public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(MainActivity.this, "Image saved at: " + file.getPath(), Toast.LENGTH_SHORT).show();
-                    }
-                });
-                startCamera(cameraFacing);
-            }
-
-            @Override
-            public void onError(@NonNull ImageCaptureException exception) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(MainActivity.this, "Failed to save: " + exception.getMessage(), Toast.LENGTH_SHORT).show();
-                    }
-                });
-                startCamera(cameraFacing);
-            }
-        });
-    }
-
-    private void setFlashIcon(Camera camera) {
-        if (camera.getCameraInfo().hasFlashUnit()) {
-            if (camera.getCameraInfo().getTorchState().getValue() == 0) {
-                camera.getCameraControl().enableTorch(true);
-            } else {
-                camera.getCameraControl().enableTorch(false);
-            }
+    public void requestPermissionStorageImages() {
+        if (ContextCompat.checkSelfPermission(MainActivity.this, permissions[0]) == PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, permissions[0] + " Granted");
+            storagePermission = true;
+            requestPermissionCameraAccess();
         } else {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(MainActivity.this, "Flash currently not available", Toast.LENGTH_SHORT).show();
-                }
-            });
+            requestPermissionLauncherStorageImages.launch(permissions[0]);
         }
     }
 
-    private int aspectRatio(int width, int height) {
-        double previewRatio = (double) Math.max(width, height) / Math.min(width, height);
-        if (Math.abs(previewRatio - 4.0 / 3.0) <= Math.abs(previewRatio - 16.0 / 9.0)) {
-            return AspectRatio.RATIO_4_3;
+    public void requestPermissionCameraAccess() {
+        if (ContextCompat.checkSelfPermission(MainActivity.this, permissions[1]) == PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, permissions[1] + " Granted");
+            cameraPermission = true;
+        } else {
+            requestPermissionLauncherCameraAccess.launch(permissions[1]);
         }
-        return AspectRatio.RATIO_16_9;
     }
 }
