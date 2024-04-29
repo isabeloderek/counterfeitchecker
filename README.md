@@ -18,4 +18,4 @@ This project includes the android app code from the following repository:
 
 - [YOLOv8-TfLite-Object-Detector](https://github.com/surendramaran/YOLOv8-TfLite-Object-Detector)
 
-Special thanks to [link-to-original-author-profile](https://github.com/surendramaran) for their contribution.
+Special thanks to [https://github.com/surendramaran](https://github.com/surendramaran) for their contribution.
