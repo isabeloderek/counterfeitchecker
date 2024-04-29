@@ -10,7 +10,7 @@ This project focuses on detecting counterfeit Philippine peso banknotes using YO
 1. Clone this repository to your local machine using `git clone https://github.com/isabeloderek/counterfeitchecker`.
 2. Put your .tflite model and .txt label file inside the assets folder
 3. Rename paths of your model and labels file in Constants.kt file
-4. **Build and Run:**
+4. **Build and Run**
 
 ## Credits
 
