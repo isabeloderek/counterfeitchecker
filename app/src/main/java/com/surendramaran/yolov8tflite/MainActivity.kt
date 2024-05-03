@@ -32,7 +32,26 @@ class MainActivity : AppCompatActivity(), Detector.DetectorListener {
     private var cameraProvider: ProcessCameraProvider? = null
     private var detector: Detector? = null
 
+    private var totalConfidence = 0.0f
+    private var objectCount = 0
+
     private lateinit var cameraExecutor: ExecutorService
+
+    override fun onDetect(boundingBoxes: List<BoundingBox>, inferenceTime: Long) {
+    runOnUiThread {
+
+        totalConfidence = 0.0f  // Reset for new frame
+        objectCount = 0
+
+        boundingBoxes.forEach { box ->
+            totalConfidence += box.cnf
+            objectCount++
+        }
+
+        val averageConfidence = if (objectCount > 0) totalConfidence / objectCount else 0.0f
+        binding.averageConfidence.text = "Avg. Conf: ${"%.1f".format(averageConfidence * 100)}%"
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
